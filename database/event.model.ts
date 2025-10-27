@@ -9,7 +9,7 @@ export interface IEvent extends Document {
   image: string;
   venue: string;
   location: string;
-  date: string;
+  date: Date;
   time: string;
   mode: string;
   audience: string;
@@ -62,12 +62,16 @@ const EventSchema = new Schema<IEvent>(
       trim: true,
     },
     date: {
-      type: String,
-      required: [true, "Date is required"],
+      type: Date,
+      required: [true, "Event date is required"],
     },
     time: {
       type: String,
-      required: [true, "Time is required"],
+      required: [true, "Event time is required"],
+      validate: {
+        validator: (v: string) => /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v),
+        message: "Time must be in HH:MM format (24-hour)",
+      },
     },
     mode: {
       type: String,
@@ -109,7 +113,7 @@ const EventSchema = new Schema<IEvent>(
   }
 );
 
-// Pre-save hook: Generate slug from title and normalize date/time
+// Pre-save hook: Generate slug from title
 EventSchema.pre("save", function (next) {
   const event = this as IEvent;
 
@@ -117,16 +121,6 @@ EventSchema.pre("save", function (next) {
     // Generate slug only if title is new or modified
     if (event.isModified("title") || event.isNew) {
       event.slug = generateSlug(event.title);
-    }
-
-    // Normalize date to DD.MM.YYYY format
-    if (event.isModified("date")) {
-      event.date = normalizeDate(event.date);
-    }
-
-    // Normalize time to HH:MM format
-    if (event.isModified("time")) {
-      event.time = normalizeTime(event.time);
     }
 
     next();
@@ -146,31 +140,29 @@ function generateSlug(title: string): string {
     .replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
 }
 
-// Helper function to normalize date to DD.MM.YYYY format
-function normalizeDate(dateString: string): string {
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) {
-    throw new Error("Invalid date format");
-  }
+// Helper function for formatting date (use at presentation layer)
+export function formatEventDate(date: Date): string {
   const day = date.getDate().toString().padStart(2, "0");
   const month = (date.getMonth() + 1).toString().padStart(2, "0");
   const year = date.getFullYear();
   return `${day}.${month}.${year}`;
 }
 
-// Helper function to normalize time to HH:MM format
-function normalizeTime(timeString: string): string {
+// Helper function to parse time string and validate format
+export function parseEventTime(timeString: string): string {
   const timeRegex = /^(\d{1,2}):(\d{2})(\s*(AM|PM))?$/i;
   const match = timeString.trim().match(timeRegex);
+
   if (!match) {
-    throw new Error("Invalid time format. Use HH:MM or HH:MM (AM/PM) format");
+    throw new Error("Invalid time format. Use HH:MM or HH:MM AM/PM");
   }
+
   let hours = parseInt(match[1]);
   const minutes = match[2];
   const period = match[4]?.toUpperCase();
 
+  // Convert 12-hour to 24-hour format if needed
   if (period) {
-    //Convert 12 hour to 24 hour format
     if (period === "PM" && hours < 12) hours += 12;
     if (period === "AM" && hours === 12) hours = 0;
   }
@@ -190,8 +182,11 @@ function normalizeTime(timeString: string): string {
 // Create unique index on slug
 EventSchema.index({ slug: 1 }, { unique: true });
 
-// Create compound index for common queries
-EventSchema.index({ date: 1, mode: 1 });
+// Create compound index for common queries (efficient range queries and sorting)
+EventSchema.index({ date: 1, time: 1, mode: 1 });
+
+// Create index on tags for efficient tag-based queries
+EventSchema.index({ tags: 1 });
 
 // Export model (prevent recompilation in development)
 const Event = models.Event || model<IEvent>("Event", EventSchema);

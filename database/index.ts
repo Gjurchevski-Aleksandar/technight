@@ -8,3 +8,4 @@ export type { IBooking } from './booking.model';
 
 // Export helper functions
 export { validateEmail } from './booking.model';
+export { formatEventDate, parseEventTime } from './event.model';

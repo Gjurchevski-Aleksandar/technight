@@ -9,26 +9,27 @@ export interface IBooking extends Document {
   updatedAt: Date;
 }
 
-// Helper function for robust email validation (RFC 5322 compliant)
+// Helper function for robust email validation (lint-friendly, RFC-inspired)
 export function validateEmail(email: string): boolean {
   // Basic checks first for performance
   if (!email || email.length > 254) return false;
 
-  // RFC 5322 compliant regex - validates 99.99% of valid email addresses
+  // Pragmatic email validation that passes linters
   // Supports:
   // - Standard emails: user@domain.com
   // - Subdomains: user@mail.domain.com
   // - Plus addressing: user+tag@domain.com
   // - Special characters: user.name@domain.co.uk
-  // - IP addresses: user@[192.168.1.1]
-  // - Quoted strings: "user name"@domain.com
+  // - Dots and hyphens: first.last@my-domain.com
   const emailRegex =
-    /^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])$/i;
+    /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i;
 
   if (!emailRegex.test(email)) return false;
 
   // Additional validation: Check local and domain parts
-  const [localPart, domainPart] = email.split("@");
+  const atIndex = email.lastIndexOf("@");
+  const localPart = email.slice(0, atIndex);
+  const domainPart = email.slice(atIndex + 1);
 
   // Local part (before @) should not exceed 64 characters
   if (localPart.length > 64) return false;
@@ -36,8 +37,12 @@ export function validateEmail(email: string): boolean {
   // Domain part should not start or end with a hyphen
   if (domainPart.startsWith("-") || domainPart.endsWith("-")) return false;
 
-  // Domain should have at least one dot (unless it's an IP address in brackets)
-  if (!domainPart.startsWith("[") && !domainPart.includes(".")) return false;
+  // Domain should have at least one dot
+  if (!domainPart.includes(".")) return false;
+
+  // Domain labels should not exceed 63 characters
+  const domainLabels = domainPart.split(".");
+  if (domainLabels.some((label) => label.length > 63)) return false;
 
   return true;
 }
