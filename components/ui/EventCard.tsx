@@ -13,7 +13,7 @@ interface Props {
 
 const EventCard = ({ title, image, slug, location, date, time }: Props) => {
   return (
-    <Link href={`events/${slug}`} id="event-card">
+    <Link href={`/events/${slug}`} id="event-card">
       <Image
         src={image}
         alt={title}
@@ -28,11 +28,11 @@ const EventCard = ({ title, image, slug, location, date, time }: Props) => {
       <p className="title">{title}</p>
 
       <div className="datetime">
-        <div>
+        <div className="flex items-center">
           <Calendar className="h-4 w-4 text-gray-400" />
           <p>{date}</p>
         </div>
-        <div>
+        <div className="flex items-center">
           <Clock className="h-4 w-4 text-gray-400" />
           <p>{time}</p>
         </div>
